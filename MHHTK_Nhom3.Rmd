@@ -1,0 +1,1070 @@
+---
+title: "Nhóm 3: Transformation - Biến đổi biến"
+output: html_document
+---
+
+**Danh sách thành viên nhóm:**
+
+-   22C01006 - Nguyễn Thị Phương Hảo
+-   22C01030 - Tôn Thiện Minh Anh
+-   22C01031 - Lê Hoàng Đức
+-   22C01034 - Đào Thị Minh Lý
+-   22C01035 - Chu Thị Bảo Ngọc
+ 
+**Phân công công việc:**
+
+-   Power Transformation                                      : Tôn Anh
+-   Box - Cox Method                                          : Hoàng Đức, Phương Hảo
+-   Yeo-Johnson Method                                        : Minh Lý
+-   Phương pháp tiếp cận tổng quát cho quy trình biến đổi biến: Bảo Ngọc
+-   Demo                                                      : Phương Hảo
+
+
+**Phân chia thuyết trình:**
+
+- Tôn Anh: Introduction + Power Transformation 
+- Hoàng Đức: Box - Cox Method 
+- Minh Lý: Yeo-Johnson Method
+- Bảo Ngọc: Phương pháp tiếp cận tổng quát cho quy trình biến đổi biến
+- Phương Hảo: Demo full dataset
+
+
+# Nội dung thuyết trình:
+
+1.  Giới thiệu về biến đổi biến
+2.  Các phương pháp:
+
+-   Biến đổi lũy thừa (power transformation)
+-   Phương pháp Box - Cox
+-   Phương pháp Yeo-Johnson
+-   Phương pháp tiếp cận tổng quát cho quy trình biến đổi biến
+
+3.  Demo
+
+# 1. Giới thiệu về biến đổi biến
+
+**Định nghĩa:**
+
+> Biến đổi biến là việc dùng một hàm toán học/phương pháp để thay đổi giá trị của biến trở nên phù hợp hơn. 
+
+**Nguyên nhân phải biến đổi?**
+
+$Y_{i} = \beta_{0} + \beta_{1}x_{i} + \varepsilon_{i}$ trong đó $\varepsilon_{i} \quad i.i.d \sim \mathcal{N}(0, \sigma^{2})$
+
+Mô hình hồi quy có các giả định sau:
+
+1. Y và biến X có mối quan hệ tuyến tính.
+2. Không có hiện tượng đa cộng tuyến giữa các biến $X_{i}$
+3. Các giả định về sai số ngẫu nhiên:
+- Các sai số $\varepsilon_{i}$ độc lập với nhau:
+$$Cov(\varepsilon_{i}, \varepsilon_{j}) \neq 0 \qquad \forall i \neq j$$
+- $\mathbb{E}(\varepsilon_{i}) = 0$ và $\mathbb{Var}(\varepsilon_{i}) = \sigma^{2}$
+- Các sai số có phân phối chuẩn.  
+
+**Tuy nhiên, trong nhiều trường hợp, các giả định này không phải lúc nào cũng thỏa.**
+
+> Mục đích của thực hiện biến đổi biến là để **làm thỏa mãn các giả định hồi quy**, tăng khả năng dự báo và chất lượng của mô hình. 
+
+# 2. Các phương pháp
+## 2.1. Biến đổi lũy thừa (Power Transformation)
+
+> Là phương pháp sử dụng các hàm lũy thừa để biến đổi X và/hoặc Y
+
+Ví dụ: Thay vì $X$ hoặc $Y$ thì biến đổi thành $X^{\lambda}$ hoặc $Y^{\lambda}$
+
+- Khi $\lambda = 1$: Không có biến đổi
+
+- Khi $\lambda = -1$: $\dfrac{1}{X}$
+
+- Khi $\lambda = 0.5$: $\sqrt{X}$
+
+- Khi $\lambda = 0$: $log(X)$ 
+
+#### Ví dụ 1: Mammals 
+
+```{r}
+library("MASS")
+mammals
+```
+Vẽ thử biểu đồ, ta cảm thấy rằng ngoại trừ 3 quan trắc của người và 2 loài voi thì còn lại đều nằm ở góc dưới bên trái của biểu đồ gây khó cho việc quan sát và tìm ra các thông tin hữu ích. 
+
+```{r}
+attach(mammals)
+plot(brain ~ body, xlab = "BodyWeight (kg)", 
+     ylab = "BrainWeight (g)",
+     main = "BrainWeight vs BodyWeight for 62 mammal species")
+```
+
+Lúc này, việc sử dụng biến đổi lũy thừa có thể sẽ có ích.
+
+```{r}
+par(mfrow = c (2, 2))
+
+# Original plot
+plot(brain ~ body, xlab = "BodyWeight (kg)", 
+     ylab = "BrainWeight (g)",
+     main="Original")
+
+# Lambda = -1
+plot((1/brain) ~ (1/body), xlab = "1/BodyWeight",
+     ylab="1/BrainWeight",
+     main="Reciprocal transformation")
+
+# Lambda = 0
+plot(log(brain) ~ log(body), xlab = "log(BodyWeight)",
+     ylab="log(BrainWeight)",
+     main="Logarithmic transformation")
+
+# Lambda = 0.5
+plot(sqrt(brain) ~ sqrt(body), xlab = expression(sqrt(BodyWeight)),
+     ylab=expression(sqrt(BrainWeight)),
+     main="Square root transformation")
+```
+
+### Quy tắc thực nghiệm trong mô hình hồi quy tuyến tính
+
+**1. Quy tắc log:**
+
+> Nếu phạm vi giá trị của một biến lớn hơn một **bậc độ lớn (order of magnitude)** và biến hoàn toàn dương thì việc thay thế biến bằng giá trị logarit của nó **có thể** sẽ hữu ích.
+
+Ví dụ: Giá trị của biến X nằm trong khoảng [a, b] với b lớn gấp $10^{k}$ lần a thì $k$ ở đây chính là bậc độ lớn (order of magnitude)
+
+Trong trường hợp bộ dữ liệu mammals, ta thấy rằng các biến đều thỏa quy tắc thực nghiệm 1 - quy tắc log. Chính vì vậy, trong số các phép biến đổi thực hiện, phép biến đổi logarit cho kết quả khả quan nhất. 
+
+```{r}
+summary(mammals)
+```
+
+**2. Quy tắc phạm vi:**
+
+> Nếu phạm vi của một biến nhỏ hơn đáng kể so với một bậc độ lớn thì bất kỳ phép biến đổi nào cho biến đó dường như sẽ không hữu ích. 
+
+#### Ví dụ 2: Biến đổi để ổn định phương sai.
+
+```{r}
+library(readr)
+initech <- read_csv("initech.csv")
+attach(initech)
+head(initech)
+```
+
+Đây là một bộ dữ liệu giả định về mức lương của nhân viên theo thâm niên.
+
+```{r}
+plot(salary ~ years, data = initech, col = "grey",
+     pch = 20, cex = 1.5,
+     main = "Salaries at Initech, By Seniority")
+```
+
+Fit thử mô hình hồi quy
+
+```{r}
+model = lm(salary ~ years, data = initech)
+summary(model)
+```
+
+```{r}
+plot(salary ~ years, data = initech, col = "grey",
+     pch = 20, cex = 1.5,
+     main = "Salaries at Initech, By Seniority")
+abline(model, col = "darkorange", lwd = 2)
+
+```
+
+
+```{r}
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+**Nhận xét:** 
+
+- Đối với biểu đồ fitted vs residuals, nếu đường màu đỏ nằm ngang và gần đường thẳng y = 0 nghĩa là giả định về kỳ vọng của sai số luôn bằng 0 thỏa mãn. Tuy nhiên, theo quan sát, ta thấy rằng có vẻ như giả định này hiện tại đang không thỏa.
+
+- Ngoài ra, trong biểu đồ Scaled-Location, đường thẳng màu đỏ không nằm ngang và các điểm cũng không nằm phân bố đều xung quanh đường màu đỏ. Điều này có nghĩa là giả định về tính ổn định của phương sai cũng đang không thỏa. 
+
+Do ví dụ này tập trung vào việc biến đổi để ổn định phương sai, ta thực hiện kiểm định để xem rõ hơn về giả thiết này:
+
+- H0: Phương sai của sai số không đổi.
+
+- H1: Phương sai của sai số thay đổi. 
+```{r}
+library(car)
+ncvTest(model)
+```
+Kết quả cho thấy rằng p-value rất nhỏ < 0.05 nên ta sẽ bác bỏ H0. Như vậy, trong trường hợp này, phương sai của sai số thay đổi nên ta sẽ thực hiện thử phép biến đổi để ổn định phương sai. 
+
+Vận dụng quy tắc thực nghiệm cho mô hình hồi quy tuyến tính - quy tắc logarit, biến đổi $Y$ thành $log(Y)$
+
+```{r}
+summary(initech)
+```
+
+```{r}
+model_log = lm(log(salary) ~ years, data=initech)
+plot(log(salary) ~ years, data = initech, col = "grey",
+     pch = 20, cex = 1.5,
+     main = "Salaries at Initech, By Seniority")
+abline(model_log, col = "darkorange", lwd = 2)
+```
+
+```{r}
+par(mfrow = c(2, 2))
+plot(model_log)
+```
+
+Thực hiện kiểm định về tính ổn định của phương sai cho mô hình sau khi biến đổi biến
+
+- H0: Phương sai của sai số không đổi.
+
+- H1: Phương sai của sai số thay đổi. 
+```{r}
+ncvTest(model_log)
+```
+Kết quả cho thấy rằng p-value = 0.99799 nên ta sẽ chấp nhận H0. Như vậy, sau khi thực hiện biến đổi, giả thiết về tính ổn định phương sai của mô hình hồi quy đã thỏa mãn.  
+
+
+## 2.2. Box-Cox
+
+**2.2.1. Transforming Only the Predictor Variable**
+
+Để lựa chọn phép biến đổi phù hợp cho Transforming Only the Predictor Variable, ta sử dụng các scaled powers transformation cho biến X dương được định nghĩa như sau :
+
+\
+$$\psi(X,\lambda) = \begin{cases} (X^\lambda - 1)/\lambda & \text{$\lambda \neq 0$} \\ log(X) & \text{$\lambda = 0$} \end{cases}$$
+
+Trong đó :\
+$\psi(X,\lambda)$ là một hàm liên tục theo $\lambda$
+
+Nếu chỉ biến đổi dự đoán và sử dụng một lựa chọn từ power family, chúng ta bắt đầu với hàm trung bình
+
+$$E[Y\|X] = β₀ + β₁ψS(λ, X)$$
+
+Nếu chúng ta biết $λ$, chúng ta có thể điều chỉnh (8.4) thông qua phương pháp bình phương tối thiểu $(OLS)$ và tính tổng bình phương phần dư, $RSS(λ)$. Một ước lượng $\hat{λ}$ của $λ$ là giá trị của $λ$ làm giảm thiểu $RSS(λ$). Chúng ta không cần phải biết $λ$ một cách rất chính xác, và việc lựa chọn $λ$ là để làm giảm thiểu $RSS(λ)$ với $λ ∈ \text{{−1, −1/2, 0, 1/3, 1/2, 1}}$ là vừa đủ.
+
+Sử dụng tập dữ liệu ufcwc. Xem xét sự phụ thuộc của chiều cao cây (**Height**) tính bằng **decimet** trên **Dbh**, đường kính của cây tính bằng milimét ở độ cao 137 cm so với mặt đất, cho một mẫu cây tuyết tùng tây trong khu vực Upper Flat Creek của Rừng Thử Nghiệm Đại học Idaho vào năm 1991.
+
+```{R,warning=FALSE,message=FALSE}
+library(alr3)
+library(extras)
+library(car)
+library(MASS)
+```
+
+```{r,warning=FALSE,message=FALSE}
+#ufcwc <- read.table("ufcwc.txt")
+head(ufcwc)
+model <- lm(Height ~ Dbh, data = ufcwc)
+
+# Plotting the OLS regression line with log(dbh) on the x-axis
+plot(ufcwc$Dbh, ufcwc$Height, main = "OLS Regression", xlab = "Dbh", ylab = "Height")
+abline(model, col = "red")
+```
+
+```{r,warning=FALSE,message=FALSE}
+with(ufcwc, invTranPlot(Dbh, Height))
+```
+
+```{r,warning=FALSE,message=FALSE}
+unlist(with(ufcwc, invTranEstimate(Dbh,Height)))
+#??invTranEstimate
+#??bcPower
+```
+
+```{R}
+model <- lm(Height ~ log(Dbh), data = ufcwc)
+
+# Plotting the OLS regression line with log(dbh) on the x-axis
+plot(log(ufcwc$Dbh), ufcwc$Height, main = "OLS Regression", xlab = "Log(DBH)", ylab = "Height")
+abline(model, col = "red")
+```
+
+### 2.2.2. Phương pháp Box-cox
+
+Box và Cox (1964) đã cung cấp một phương pháp tổng quát để lựa chọn một phép transform thông qua tham số $\lambda$ được gọi là phương pháp box-cox. Phương pháp này thường được sử dụng để đưa ra lựa chọn phép biến đổi cho response variable. Tuy vậy, nó cũng có thể được sử dụng để hổ trợ đưa ra lựa chọn phép biến đổi cho các predictor variables.
+
+$$
+\begin{align*}
+\psi(Y, \lambda_y) &= \psi_S(Y,\lambda_y) \times \text{gm}(Y)^{1-\lambda_y} \\
+&= \begin{cases}
+    \text{gm}(Y)^{1-\lambda_y} \times \left(\frac{Y^{\lambda_y} -1}{\lambda_y}\right) & \text{nếu } \lambda_y \neq 0 \\
+    \text{gm}(Y) \times \log(Y) & \text{nếu } \lambda_y = 0
+   \end{cases}
+\end{align*}
+$$
+
+Trong đó, :
+
+-   $gm(Y)$ là geometric mean của biến chưa được transform với $gm(Y) = \exp{(\sum log(y_i/n))}$
+
+Giả sử có hàm trung bình cho $\lambda_y$ : $$
+  E(\psi_M(Y,\lambda_y)| X = x) = \beta \text{'}x
+$$ Nếu $λ_y$ được biết trước, chúng ta có thể điều chỉnh hàm trung bình bằng OLS vì transform response $ψ_M(Y, λ_y)$ sẽ hoàn toàn được xác định. Việc nhân scaled transformation với $gm(Y)^{1−λ}$ đảm bảo rằng đơn vị của $ψ_M(Y, λ_y)$ là như nhau cho tất cả các giá trị của $λ_y$, và do đó tất cả các $RSS(λy)$ đều có cùng đơn vị. Chúng ta ước lượng $λ_y$ để là giá trị của tham số biến đổi mà làm giảm thiểu $RSS(λ_y)$.
+
+Từ một góc độ thực tế, chúng ta có thể lựa chọn $λ_y$ từ $λ_y$ $∈ \text{{−1, −1/2, 0, 1/3, 1/2, 1}}$ một lần nữa.
+
+#### Lưu ý :
+
+-   Phương pháp Box-Cox không biến đổi để tạo ra tính tuyến tính (linearity), mà thay vào đó, nó biến đổi để tạo ra tính chuẩn (normality): $λ$ được chọn để làm cho residuals từ phương trình hồi quy của $ψ(Y, λ_y)$ trên $X$ gần như phân phối theo phân phối chuẩn nhất có thể (as close to normally distributed as possible).
+
+**Xét ví dụ** : cho tập dữ liệu Highway Accident tỷ lệ tai nạn ô tô trong số vụ tai nạn trên một triệu dặm xe với một số yếu tố dự báo tiềm năng bao gồm các quan trắc :
+
+| Variable | Description                                               |
+|----------|-----------------------------------------------------------|
+| rate     | 1973 accident rate per million vehicle miles              |
+| len      | Length of the segment in miles                            |
+| adt      | Estimated average daily traffic count in thousands        |
+| trucks   | Truck volume as a percentage of the total volume          |
+| slim     | 1973 speed limit                                          |
+| shld     | Shoulder width in feet of outer shoulder on the roadway   |
+| sigs     | Number of signalized interchanges per mile in the segment |
+
+```{R}
+vars_to_plot <- c("Rate","Len", "ADT", "Trks", "Shld", "Sigs","Slim")
+pairs(highway[, vars_to_plot], main = "Pairs Plot for Selected Variables")
+```
+
+```{R}
+highway$Sigs1 <- with(highway, (Sigs * Len + 1)/Len)
+summary(a1 <- powerTransform(cbind(Len, ADT, Trks, Shld, Sigs1) ~ 1, highway))
+```
+
+Test 1 : Likelihood ratio test that transformation parameters are equal to 0 (all log transformations)
+
+$H_0$: Cần thực hiện phép biến đổi log-transformation cho tất cả các biến
+
+$H_1$ : Không thực hiện phép biến đổi log-transformation cho tất cả các biến.
+
+-   Kết luận : bác bỏ $H_0$ do p_val =0.0002926\< 0.05
+
+Test 2: Likelihood ratio test that no transformation are needed
+
+$H_0$: Không cần thực hiện phép transformation
+
+$H_1$: Cần thực hiện tối thiểu một phép transformation
+
+-   Kết luận : bác bỏ $H_0$ do p_val = 2.22e-16 \< 0.05
+
+```{R}
+testTransform(a1, c(0,0,0,1,0))
+```
+
+$H_0$ : Phép transformation sử dụng các giá trị lambda là không cần thiết
+
+$H_1$ : Phép transformation sử dụng các giá trị lambda là cần thiết
+
+```{R}
+par(mfrow = c(2, 2))
+
+# Plot histograms for Len and log(Len)
+hist(highway$Len, main = "Histogram of Len")
+hist(log(highway$Len),  main = "Histogram of log(Len)")
+
+# Plot histograms for ADT and log(ADT)
+hist(highway$ADT, main = "Histogram of ADT")
+hist(log(highway$ADT), main = "Histogram of log(ADT)")
+```
+
+```{R}
+pairs((Rate)~log(Len) + log(ADT) + log(Trks) + Shld + log(Sigs1), highway)
+```
+
+
+## 2.3. Phương pháp Yeo-Johnson
+
+Giống với phép biến đổi Box-Cox, phép biến đổi Yeo-Johnson cũng được đặt tên theo 2 tác giả. Phép biến đổi Yeo-Johnson hoạt động tương tự như phép biến đổi Box-Cox. Cơ bản, phép biến đổi Yeo-Johnson cũng điều chỉnh phân phối của biến số về gần với phân phối Gauss hơn, giúp đồng nhất phương sai và tăng khả năng ứng dụng mô hình hồi quy tuyến tính. Điểm khác biệt của phép biến đổi này là có thể thực hiện trên dữ liệu có số âm và dữ liệu có phương sai thấp hoặc bằng 0. Điều này giúp cải thiện khả năng dự đoán và tối ưu hóa mô hình hồi quy.
+
+Công thức Yeo-Johnson được định nghĩa như sau:
+
+$\Psi(y,\lambda) = \begin{cases} 
+\left((y + 1)^{\lambda} - 1\right)/\lambda & \text{if } \lambda \neq 0, y \geq 0 \\
+\log(y + 1) & \text{if } \lambda = 0, y \geq 0 \\
+-\left((-y + 1)^{2 - \lambda} - 1\right)/(2 - \lambda) & \text{if } \lambda \neq 2, y < 0 \\
+-\log(-y + 1) & \text{if } \lambda = 2, y < 0
+\end{cases}$
+
+Trong đó:
+
+$y$ là giá trị dữ liệu ban đầu.
+
+$\lambda$ là một tham số có thể được ước lượng từ dữ liệu để tối ưu hóa phân phối biến số. $\lambda$ có thể nhận giá trị bất kỳ trong khoảng từ âm vô cùng đến dương vô cùng.
+
+Nếu $y$ dương nghiêm ngặt, thì phép biến đổi Yeo-Johnson sẽ giống với phép biến đổi Box-Cox của $(y + 1)$. Nếu $y$ âm nghiêm ngặt, thì phép biến đổi Yeo-Johnson sẽ giống với phép biến đổi Box-Cox của $(- y + 1)$, nhưng với số mũ $(2 - \lambda)$. Khi có cả giá trị âm và dương, phép biến đổi là sự kết hợp của hai phép biến đổi trên, với việc sử dụng các số mũ khác nhau cho các giá trị âm và dương.
+
+### Ví dụ
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(car)
+library(MASS)
+```
+
+Dữ liệu tự tạo với 5 biến (x1, x2, x3, x4, y) và 30 quan trắc.
+```{r}
+my_data <- read.csv("my_data.csv")
+dim(my_data)
+my_data
+```
+
+``` {r}
+par(mfrow = c(2, 2))
+
+hist(my_data$x1)
+hist(my_data$x2)
+
+hist(my_data$x3)
+hist(my_data$x4)
+```
+
+Với 4 biểu đồ trên, các biến x1, x2, x3 đang không có phân phối gần bằng với phân phối chuẩn. Nên cần thực hiện phép biến đổi trên 3 biến này.
+
+
+``` {r}
+# summary(a1 <- powerTransform(cbind(x1, x2, x3, x4) ~ 1, my_data))
+
+# Error in bc1(out[, j], lambda[j]) : 
+#  First argument must be strictly positive.
+```
+
+Nếu chỉ sử dụng hàm powerTransform tương tự như trên, thì với bộ dữ liệu này, sẽ trả về lỗi. Bởi vì nếu không thêm tham số family cho hàm powerTransform, thì máy sẽ tự động hiểu là Box-Cox. Mà Box-Cox chỉ sử dụng với dữ liệu hoàn toàn dương, nhưng bộ dữ liệu này có cả số âm và số 0, nên sẽ gây ra lỗi.
+
+Do đó, ứng với bộ dữ liệu có cả số âm, số 0, và số dương; ta sẽ thêm family = 'yjPower' vào hàm powerTransform.
+
+``` {r}
+a1 <- powerTransform(cbind(x1, x2, x3, x4) ~ 1, my_data, family = 'yjPower')
+summary(a1)
+```
+
+$H_0$: Không cần thực hiện phép transformation 
+
+$H_1$: Cần thực hiện ít nhất một phép transformation
+
+Kết luận: Bác bỏ $H_0$ vì p-value nhỏ => Cần thực hiện ít nhất một phép transformation
+
+
+```{R}
+testTransform(a1, c(1,1,1,0))
+```
+
+$H_0$ : Thực hiện phép transformation với $\lambda = 0$ cho biến x4 là cần thiết 
+
+$H_1$ : Thực hiện phép transformation với $\lambda = 0$ cho biến x4 là không cần thiết 
+
+Kết luận: Bác bỏ $H_0$ vì p-value nhỏ => Thực hiện phép transformation với $\lambda = 0$ cho biến x4 là không cần thiết
+
+
+
+### Kiểm định điều kiện của mô hình hồi quy tuyến tính
+
+```{r}
+yeo_johnson_transform <- function(data, lambdas, columns) {
+  transformed_data <- data
+  
+  for (col in columns) {
+    # Extract the column data
+    x <- data[[col]]
+    lambda <- lambdas[[col]]
+    eps <- .5
+    
+    # Perform Yeo-Johnson transformation
+    pos_idx <- which(x >= 0)
+    neg_idx <- which(x < 0)
+      
+    # Transform negative values
+    if (length(pos_idx)>0) {
+      if (abs(lambda) < eps) {
+        x[pos_idx] <- log(x[pos_idx] + 1)
+      } else {
+        x[pos_idx] <- ((x[pos_idx] + 1) ^ lambda - 1) / lambda
+      }
+    } 
+    
+    # Transform nonnegative values
+    if (length(neg_idx)>0){
+      if (abs(lambda - 2) < eps) {
+        x[neg_idx] <- - log(-x[neg_idx] + 1)
+      } else {
+        x[neg_idx] <- - ((-x[neg_idx] + 1) ^ (2 - lambda) - 1) / (2 - lambda)
+      }
+    }
+    
+    # Assign the transformed column back to the data
+    transformed_data[[col]] <- x
+  }
+  
+  return(transformed_data)
+}
+
+
+lambda <- a1$lambda
+
+# Biến đổi dữ liệu sử dụng lambda tìm được
+transformed_data <- yeo_johnson_transform(my_data, lambda, columns = c("x1", "x2", "x3", "x4"))
+
+# Xây dựng mô hình hồi quy tuyến tính với dữ liệu đã biến đổi
+model <- lm(y ~ x1 + x2 + x3 + x4, data = transformed_data)
+```
+
+
+```{r}
+par(mfrow = c(2, 2))
+plot(model)
+```
+
+Dựa vào các đồ thị trên có thể nói dữ liệu sau khi biến đổi biến đã thỏa với các giả định của mô hình hồi quy tuyến tính
+
+```{r}
+# Hiển thị kết quả mô hình
+summary(model)
+```
+
+$H_0$: $\beta_i$ = 0 với mọi i
+
+$H_1$: Tồn tại $\beta_i$ != 0
+
+Kết luận: Bác bỏ $H_0$ vì p-value nhỏ => Vậy tồn tại $\beta_i$ != 0
+
+
+## 2.4. Phương pháp tiếp cận tổng quát cho quy trình biến đổi biến
+
+```{r}
+library(car)
+library(alr3)
+library(extras)
+```
+
+Quy trình biến đổi biến đòi hỏi một cách tiếp cận "thử và sai". Khi xây dựng một mô hình hồi quy tuyến tính, ta thử một phép biến đổi và sau đó phải kiểm tra xem liệu phép biến đổi đó có loại bỏ được các vấn đề với mô hình hay chưa. Nếu nó không giúp ích được gì, ta lại thử một phép biến đổi khác. Và ta sẽ tiếp tục lặp lại quá trình này cho đến khi xây dựng được một mô hình thỏa hết các giả định của hồi quy tuyến tính. Lúc đó ta mới có thể sử dụng mô hình này để suy luận và dự đoán [1].
+
+Nhu cầu sử dụng các phép biến đổi biến phát sinh do các biến ban đầu, hoặc mô hình theo các biến ban đầu, vi phạm một hoặc nhiều giả định của hồi quy tuyến tính. Trong đó, biến đổi biến thường được dùng để xử lý khi một trong ba giả định sau bị vi phạm [1]:
+
+-   Tính tuyến tính: Giữa biến phụ thuộc Y và các biến độc lập X~1~ , ..., X~k~ phải có mối quan hệ tuyến tính.
+-   Tính chuẩn: Các sai số phải tuân theo phân phối chuẩn.
+-   Tính ổn định phương sai: Các sai số phải có phương sai không đổi.
+
+Xét một mô hình hồi quy tuyến tính:
+
+Y~i~ = $\beta_{0}$ + $\beta_{1}$x~i1~ + $\beta_{2}$x~i2~ + ... + $\beta_{k}$x~ik~+ $\epsilon_{i}$ với i = 1, ..., n (n là số quan trắc)
+
+Ta có các trường hợp như sau:
+
+1.  **Trường hợp 1:** Nếu nhận thấy chỉ có giả định về tính tuyến tính không được thỏa thì ta có thể bắt đầu bằng việc thử biến đổi các biến X~1~ , ..., X~k~ [1].
+
+    [Ví dụ 1:]{.underline}
+
+    ```{r}
+    # Dataset wordrecall (2 biến, 13 quan trắc): Nghiên cứu mà trong đó 13 người được yêu cầu ghi nhớ một danh sách các từ (prop: tỷ lệ các từ được nhớ đúng; time: thời gian (phút) kể từ khi danh sách các từ được ghi nhớ)
+    wordrecall <- read.table("wordrecall.txt", header = TRUE)
+    wordrecall
+
+    # Mô hình hồi quy tuyến tính đơn với prop là biến phụ thuộc và time là biến độc lập:
+    mod <- lm(prop ~ time, data = wordrecall) 
+
+    plot(wordrecall$time, wordrecall$prop)
+    ```
+
+    Từ đồ thị vẽ biến prop theo biến time, ta thấy giữa hai biến không có mối quan hệ tuyến tính.
+
+    ```{r}
+    plot(mod,1)
+    ```
+
+    Từ biểu đồ vẽ giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ không nằm ngang ở gần đường y = 0, và các điểm trên biểu đồ không phân bố đều xung quanh đường màu đỏ. Do đó, có vẻ như mô hình đang không thỏa giả định về kỳ vọng của sai số luôn bằng 0 và giả định về tính tuyến tính.
+
+    ```{r}
+    plot(mod,2)
+    ```
+
+    Từ biểu đồ Q - Q plot của các giá trị thặng dư, ta thấy các điểm trên biểu đồ nằm khá sát đường thẳng, nên có vẻ như mô hình thỏa giả định về tính chuẩn.
+
+    ```{r}
+    plot(mod,3)
+    ```
+
+    Từ biểu đồ vẽ căn bậc hai của giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ không nằm ngang mà bị cong xuống ở phần đuôi, và các điểm trên biểu đồ không phân bố đều xung quanh đường màu đỏ. Tuy nhiên, điều này có thể đã bị ảnh hưởng bởi việc giả định về tính tuyến tính ban nãy không thỏa. Do đó, ta chưa kết luận được gì về tính ổn định phương sai từ biểu đồ này.
+
+    Nay ta đi kiểm tra lại giả định về tính chuẩn và tính ổn định phương sai bằng các kiểm định:
+
+    ```{r}
+    shapiro.test(resid(mod))
+    ```
+
+    Kiểm định Shapiro - Wilk có:
+
+    H~0~ : Các sai số cùng tuân theo phân phối chuẩn.
+
+    H~1~ : Các sai số không cùng tuân theo phân phối chuẩn.
+
+    Ở đây, vì p - value = 0.5616 \> 0.05 nên ta không đủ cơ sở để bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình thỏa giả định về tính chuẩn.
+
+    ```{r}
+    ncvTest(mod)
+    ```
+
+    Kiểm định ncvTest có:
+
+    H~0~ : Các sai số có phương sai không đổi.
+
+    H~1~ : Các sai số có phương sai thay đổi.
+
+    Ở đây, vì p - value = 0.6456 \> 0.05 nên ta không đủ cơ sở để bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình thỏa giả định về tính ổn định phương sai.
+
+    Tóm lại, mô hình của chúng ta chỉ không thỏa giả định về tính tuyến tính, do đó ta có thể thử biến đổi biến độc lập time.
+
+    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+    Phép biến đổi phù hợp cho một biến X~j~ có thể được tìm bằng cách sử dụng phương pháp Box - Cox / Yeo - Johnson. Để tìm phép biến đổi phù hợp cho nhiều biến độc lập hoàn toàn dương cùng một lúc, ta có thể sử dụng phương pháp Box - Cox đa biến [2].
+
+2.  **Trường hợp 2:** Nếu nhận thấy chỉ có giả định về tính chuẩn và / hoặc giả định về tính ổn định phương sai không được thỏa thì ta có thể thử biến đổi biến Y [1].
+
+    [Ví dụ 2:]{.underline}
+
+    ```{r}
+    # Dataset cars (2 biến, 50 quan trắc): Nghiên cứu mối quan hệ giữa tốc độ của xe và khoảng cách đến khi xe dừng lại (dist: khoảng cách đến khi xe dừng lại; speed: tốc độ của xe) 
+    cars
+
+    # Mô hình hồi quy tuyến tính đơn với dist là biến phụ thuộc và speed là biến độc lập: 
+    mod2 <- lm(dist ~ speed, data = cars)
+
+    plot(cars$speed, cars$dist)
+    ```
+
+    Từ đồ thị vẽ biến dist theo biến speed, ta thấy có vẻ như giữa hai biến có mối quan hệ tuyến tính.
+
+    ```{r}
+    plot(mod2, 1)
+    ```
+
+    Từ biểu đồ vẽ giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ nằm tương đối ngang ở gần đường y = 0, và các điểm trên biểu đồ phân bố khá đều xung quanh đường màu đỏ. Do đó, có vẻ như mô hình thỏa giả định về kỳ vọng của sai số luôn bằng 0 và giả định về tính tuyến tính.
+
+    ```{r}
+    plot(mod2, 2)
+    ```
+
+    Từ biểu đồ Q - Q plot của các giá trị thặng dư, ta thấy đa số các điểm trên biểu đồ nằm khá sát đường thẳng. Tuy nhiên có một số điểm (ví dụ như điểm tương ứng với quan trắc thứ 23 và 49) nằm hơi xa đường thẳng. Do đó, ta chưa kết luận được gì về tính chuẩn từ biểu đồ này.
+
+    ```{r}
+    plot(mod2, 3)
+    ```
+
+    Từ biểu đồ vẽ căn bậc hai của giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ nằm tương đối thẳng, và các điểm trên biểu đồ phân bố khá đều xung quanh đường màu đỏ. Tuy nhiên có một số điểm (ví dụ như điểm tương ứng với quan trắc thứ 23 và 49) nằm hơi xa đường màu đỏ. Do đó, ta cũng chưa kết luận được gì về tính ổn định phương sai từ biểu đồ này.
+
+    Nay ta đi kiểm tra lại giả định về tính chuẩn và tính ổn định phương sai bằng các kiểm định:
+
+    ```{r}
+    shapiro.test(resid(mod2))
+    ```
+
+    Kiểm định Shapiro - Wilk có:
+
+    H~0~ : Các sai số cùng tuân theo phân phối chuẩn.
+
+    H~1~ : Các sai số không cùng tuân theo phân phối chuẩn.
+
+    Ở đây, vì p - value = 0.0215 \< 0.05 nên ta bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình không thỏa giả định về tính chuẩn.
+
+    ```{r}
+    ncvTest(mod2)
+    ```
+
+    Kiểm định ncvTest có:
+
+    H~0~ : Các sai số có phương sai không đổi.
+
+    H~1~ : Các sai số có phương sai thay đổi.
+
+    Ở đây, vì p - value = 0.0310 \< 0.05 nên ta bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình không thỏa giả định về tính ổn định phương sai.
+
+    Như vậy, mô hình của chúng ta đang không thỏa giả định về tính chuẩn và tính ổn định phương sai, do đó ta có thể thử biến đổi biến phụ thuộc dist.
+
+    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+    Phép biến đổi phù hợp cho Y có thể được tìm bằng phương pháp Box - Cox / Yeo - Johnson.
+
+    Đặc biệt, trong trường hợp biến X tuân theo phân phối chuẩn (đối với hồi quy tuyến tính đơn) hoặc các đồ thị phân tán thể hiện sự tương quan giữa từng cặp biến độc lập đều có dạng gần với hàm tuyến tính (đối với hồi quy tuyến tính bội) thì ta có thể sử dụng biểu đồ inverse response plot để tìm phép biến đổi phù hợp cho Y.
+
+    [Ví dụ 2 (tiếp tục):]{.underline}
+
+    ```{r}
+    qqnorm(cars$speed, pch = 1, frame = FALSE)
+    qqline(cars$speed, col = "steelblue", lwd = 2)
+    shapiro.test(cars$speed) 
+    ```
+
+    Ta xét thử Q - Q plot của biến độc lập speed thì thấy biến này có vẻ tuân theo phân phối chuẩn, và khi kiểm tra lại bằng kiểm định Shapiro - Wilk thì thấy p - value = 0.4576 \> 0.05 nên ta không đủ cơ sở để bác bỏ H~0~ : *Biến speed tuân theo phân phối chuẩn* với mức ý nghĩa 0.05. Vì vậy, ta kết luận rằng biến speed tuân theo phân phối chuẩn.
+
+    Khi đó, ta vẽ được biểu đồ inverse response plot, là biểu đồ vẽ giá trị ước lượng $\widehat{dist}$ theo dist ứng với từng giá trị $\lambda \in \{\hat{\lambda} , -1, 0, 1\}$. Trong đó, $\hat{\lambda}$ là giá trị $\lambda$ tối ưu cho hàm biến đổi lũy thừa trên biến dist, là giá trị $\lambda$ làm cực tiểu hàm tổng bình phương phần dư RSS.
+
+    ```{r}
+    invResPlot(mod2)
+    ```
+
+    Ở đây, $\hat{\lambda}$ = 0.36 thì ta có thể làm tròn thành 0.33, ứng với phép biến đổi lấy căn bậc ba.
+
+    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+    Trong biểu đồ inverse response plot, nếu đường cong ứng với $\lambda = \hat{\lambda}$ thể hiện xu hướng phi tuyến rõ ràng thì ta nên biến đổi Y theo $\hat{\lambda}$ trong đồ thị, còn nếu đường cong đó không thể hiện xu hướng phi tuyến rõ ràng thì mọi phép biến đổi trên biến Y sẽ nhiều khả năng đều không có ích [2].
+
+    Lưu ý rằng, mặc dù ban đầu một số giả định có thể thỏa cho mô hình, nhưng sau khi áp dụng biến đổi biến thì chúng có thể không còn thỏa nữa. Do đó, ta cần kiểm tra lại tất cả các giả định hồi quy tuyến tính sau mỗi lần thực hiện phép biến đổi biến [1].
+
+3.  **Trường hợp 3:** Nếu như cả giả định về tính tuyến tính, tính chuẩn và tính ổn định phương sai đều bị vi phạm thì ta có thể cần biến đổi cả các biến X~1~ , ..., X~k~ lẫn biến Y.
+
+    [Ví dụ 3:]{.underline}
+
+    ```{r}
+    # Dataset BigMac2003 (10 biến, 69 quan trắc): Nghiên cứu ảnh hưởng của nhiều yếu tố đến khả năng mua hamburger BigMac (BigMac: Số phút lao động để có được đủ tiền mua một hamburger BigMac, Bread: Số phút lao động để có được đủ tiền mua 1kg bánh mì, Rice: Số phút làm việc để có được đủ tiền mua 1kg gạo, FoodIndex: Chỉ số giá thực phẩm, ...) 
+    BigMac2003
+
+    # Mô hình hồi quy tuyến tính bội với BigMac là biến phụ thuộc và Bread, Rice, FoodIndex là các biến độc lập:
+    mod3 <- lm(BigMac ~ Bread + Rice + FoodIndex, data = BigMac2003)
+
+    plot(mod3, 1)
+    ```
+
+    Từ biểu đồ vẽ giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ nằm tương đối ngang ở gần đường y = 0, tuy nhiên các điểm trên biểu đồ không phân bố đều xung quanh đường màu đỏ. Do đó, có vẻ như mô hình thỏa giả định về kỳ vọng của sai số luôn bằng 0, nhưng không thỏa giả định về tính tuyến tính.
+
+    ```{r}
+    plot(mod3, 2)
+    ```
+
+    Từ biểu đồ Q - Q plot của các giá trị thặng dư, ta thấy các điểm ở giữa biểu đồ nằm khá sát đường thẳng. Tuy nhiên có một số điểm ở bên trái và bên phải của biểu đồ (ví dụ như điểm tương ứng với quan trắc của vùng Nairobi và vùng Shangni) nằm hơi xa đường thẳng. Do đó, ta chưa kết luận được gì về tính chuẩn từ biểu đồ này.
+
+    ```{r}
+    plot(mod3, 3)
+    ```
+
+    Từ biểu đồ vẽ căn bậc hai của giá trị thặng dư theo giá trị ước lượng, có thể thấy đường màu đỏ hoàn toàn không nằm ngang, và các điểm trên biểu đồ không phân bố đều xung quanh đường màu đỏ. Tuy nhiên, điều này có thể đã bị ảnh hưởng bởi việc giả định về tính tuyến tính ban nãy không thỏa. Do đó, ta cũng chưa kết luận được gì về tính ổn định phương sai từ biểu đồ này.
+
+    Nay ta đi kiểm tra lại giả định về tính chuẩn và tính ổn định phương sai bằng các kiểm định:
+
+    ```{r}
+    shapiro.test(resid(mod3))
+    ```
+
+    Kiểm định Shapiro - Wilk có:
+
+    H~0~ : Các sai số cùng tuân theo phân phối chuẩn.
+
+    H~1~ : Các sai số không cùng tuân theo phân phối chuẩn.
+
+    Ở đây, vì p - value = 1.509 x 10^-5^ \< 0.05 nên ta bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình không thỏa giả định về tính chuẩn.
+
+    ```{r}
+    ncvTest(mod3)
+    ```
+
+    Kiểm định ncvTest có:
+
+    H~0~ : Các sai số có phương sai không đổi.
+
+    H~1~ : Các sai số có phương sai thay đổi.
+
+    Ở đây, vì p - value \< 2.22 x 10^-16^ \< 0.05 nên ta bác bỏ H~0~ với mức ý nghĩa 0.05. Và ta kết luận rằng mô hình không thỏa giả định về tính ổn định phương sai.
+
+    Tóm lại, mô hình của chúng ta đang không thỏa cả ba giả định về tính tuyến tính, tính chuẩn và tính ổn định phương sai, do đó ta có thể thử biến đổi cả các biến độc lập Bread, Rice, FoodIndex lẫn biến phụ thuộc BigMac.
+
+    \-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\--
+
+    Việc biến đổi X~1~ , ..., X~k~ sẽ chủ yếu khắc phục vấn đề liên quan đến tính tuyến tính, còn việc biến đổi Y sẽ khắc phục được các vấn đề về sai số (và cũng có thể giúp ích cho vấn đề về tính tuyến tính) [1]. Lúc này, ta có hai cách để tiếp cận việc biến đổi biến [3]:
+
+    -   *Cách 1:* Ta sử dụng phương pháp Box - Cox đa biến để tìm phép biến đổi phù hợp cho các biến X~1~ , ..., X~k~ , nếu các biến này hoàn toàn dương, nhằm đưa các biến này gần về phân phối chuẩn đồng thời. Sau đó, sử dụng đồ thị inverse response plot để tìm phép biến đổi phù hợp cho Y.
+    -   *Cách 2:* Ta có thể sử dụng phương pháp Box - Cox đa biến để tìm phép biến đổi phù hợp cho cả biến Y lẫn các biến X~1~ , ..., X~k~ cùng một lúc, nếu như tất cả các biến này đều hoàn toàn dương.
+
+Ngoài ra, nếu trong mô hình có biến giả (dummy variable) thì ta không nên biến đổi các biến này [2]. Vì biến giả là biến lấy giá trị nhị phân (0 hoặc 1) để thể hiện sự tồn tại hoặc không tồn tại của một yếu tố phân loại nào đó, nên việc biến đổi các biến này bằng các phép toán có thể làm mất tính giải thích được của chúng.
+
+Sau khi đã xây dựng được một mô hình thỏa đủ các giả định của hồi quy tuyến tính, ta mới có thể dùng mô hình này để suy luận và dự báo.
+
+# 3. Demo
+
+## Import package
+
+```{R}
+library("readxl")
+library(data.table)
+library(corrplot)  
+library(car)
+library(psych) 
+
+```
+
+
+## Load dataset
+
+Data thu thập trên 48 tiểu bang của Hoa kỳ với các biến :
+
+TAX: thuế trên xăng dầu (100/galong)
+
+DLIC: % người có bằng lái
+
+INC: thu nhập trên đầu người (nghìn đô la)
+
+ROAD: nghìn dặm đường cao tốc
+
+Y: mức tiêu thụ xăng trên đầu người
+
+```{r cars}
+data <- read_excel("lươngtieuthuxang.XLS")
+setnames(data, "Tiểu bang HK", "HK")
+setnames(data, "TAX x_i1", "TAX_x_i1")
+setnames(data, "DLIC x_i2", "DLIC_x_i2")
+setnames(data, "INC x_i13", "INC_x_i13")
+setnames(data, "ROAD x_i4", "ROAD_x_i4")
+setnames(data, "FUEL x_i5", "FUEL_x_i5")
+dim(data)
+head(data)
+
+```
+
+```{R}
+data <- data[,-1]
+head(data)
+```
+## Phân tích tương quan
+
+
+```{R}
+op <- par(mfrow = c(1,4))
+plot(TAX_x_i1 ~ FUEL_x_i5, data = data, pch = 16, col = 'blue',main = "TAX_x_i1 vs FUEL_x_i5")
+plot(data$DLIC_x_i2, data$FUEL_x_i5, pch = 16, col = 'blue', main = "DLIC_x_i2 vs FUEL_x_i5")
+plot(data$INC_x_i13, data$FUEL_x_i5, pch = 16, col = 'blue', main = "INC_x_i13 vs FUEL_x_i5")
+plot(data$ROAD_x_i4, data$FUEL_x_i5, pch = 16, col = 'blue', main = "ROAD_x_i4 vs FUEL_x_i5")
+```
+
+
+
+
+```{R}
+corrplot(cor(data), method = "circle", addCoef.col = "grey")
+
+```
+
+
+## Fit model
+
+```{R}
+mod <- lm(FUEL_x_i5 ~ ., data = data)
+summary(mod)
+```
+$H_0$: $\beta_i$ = 0 với mọi i
+
+$H_1$: $\beta_i$ != 0
+
+p-value của ROAD_x_i4 lớn hơn 0.05   =>  chấp nhận $H_0$  => $\beta_4$ =0
+
+=>  ROAD_x_i4 không ảnh hưởng đến lượng xăng FUEL_x_i5.
+
+Ta sẽ tạo mô hình thứ hai để loại bỏ ROAD_x_i4
+
+```{R}
+mod2 <- lm(FUEL_x_i5 ~ TAX_x_i1 + DLIC_x_i2 + INC_x_i13, data = data)
+summary(mod2) 
+```
+
+### kiểm tra đa cộng tuyến
+```{R}
+vif(mod2)
+```
+Đảm bảo không có đa cộng tuyến
+
+### Giả định của mô hình
+##đồ thị phần dư
+```{R}
+par(mfrow = c(2, 2))
+plot(mod2)
+```
+
+
+Đồ thị thứ nhất: Các điểm giá trị thặng dư phân tán xung quanh đường màu đỏ, tuy nhiên có một vài điểm ở xa => có thể không có tính tuyến tính giữa biến phụ thuộc và các biến độc lập 
+
+Đồ thị thứ 2: Các điểm giá trị thặng dư gần như nằm trên đường thẳng => có thể thoả mãn tính chuẩn
+
+Đồ thị thứ 3: Đường màu đỏ ko thẳng lắm , có một vài điểm ở xa => chưa kết luận được tính ổn định của phương sai 
+
+# Kiểm định 
+
+### Tính chuẩn
+$H_0$: $\epsilon_i$ có phân phối chuẩn
+
+$H_1$: $\epsilon_i$ không có phân phối chuẩn
+```{R}
+shapiro.test(resid(mod2))
+```
+p-value nhỏ => bác bỏ $H_0$ => không thoả mãn tính chuẩn
+
+### Trung bình sai số = 0 
+$H_0$: $E(\epsilon_i)$ = 0
+
+$H_1$: $E(\epsilon_i)$ != 0
+
+```{R}
+t.test(resid(mod2), mu = 0)
+```
+p-value = 1 => không bác bỏ $H_0$ => thoả mãn $E(\epsilon_i)$ =0
+
+### Tính ổn định của phương sai 
+$H_0$: phương sai không đổi
+
+$H_1$: phương sai thay đổi
+
+```{R}
+ncvTest(mod2)
+```
+p-value nhỏ => bác bỏ $H_0$ => không thoả mãn tính ổn định của phương sai 
+
+
+# Transformation
+
+Theo như kết quả các phép kiểm định trên, ta thấy: giả định về tính chuẩn và tính ổn định của phương sai không thoả
+
+=> ta sẽ thực hiện phép biến đổi trên Y ( dựa trên lí thuyết đã trình bày ở mục 2.4. Phương pháp tiếp cận tổng quát cho quy trình biến đổi biến)
+
+Transform Y
+```{R}
+summary(a1 <- powerTransform(FUEL_x_i5 ~ TAX_x_i1 + DLIC_x_i2 + INC_x_i13, data = data))
+```
+Test 1 : Likelihood ratio test that transformation parameters are equal to 0 (all log transformations)
+
+$H_0$: Cần thực hiện phép biến đổi log-transformation cho tất cả các biến
+
+$H_1$ : Không cần thực hiện phép biến đổi log-transformation cho tất cả các biến
+
+=> p-value lớn => không bác bỏ $H_0$
+
+Test 2: Likelihood ratio test that no transformation are needed
+
+$H_0$: Không cần thực hiện phép transformation 
+
+$H_1$: Cần thực hiện tối thiểu một phép transformation
+
+=> p-value nhỏ =>  bác bỏ $H_0$
+
+```{R}
+testTransform(a1,c(0))
+```
+$H_0$: Phép transformation sử dụng các giá trị lambda là không cần thiết 
+
+$H_1$: Phép transformation sử dụng các giá trị lambda là cần thiết
+
+=> p-value lớn => không bác bỏ H0
+
+
+
+```{R}
+
+new_model <- lm(log(FUEL_x_i5) ~ TAX_x_i1 + DLIC_x_i2 + INC_x_i13, data)
+```
+
+
+# Kiểm định lại 
+### Tính chuẩn
+$H_0$: $\epsilon_i$ có phân phối chuẩn
+
+$H_1$: $\epsilon_i$ không có phân phối chuẩn
+```{R}
+shapiro.test(resid(new_model))
+```
+p-value lớn => không bác bỏ $H_0$ => thoả mãn tính chuẩn
+
+
+### Trung bình sai số = 0 
+$H_0$: $E(\epsilon_i)$ = 0
+
+$H_1$: $E(\epsilon_i)$ != 0
+```{R}
+t.test(resid(new_model), mu = 0)
+```
+p-value lớn => không bác bỏ $H_0$ => thoả mãn $E(\epsilon_i)$ =0
+ 
+### Tính ổn định của phương sai 
+$H_0$: phương sai không đổi
+
+$H_1$: phương sai thay đổi
+```{R}
+ncvTest(new_model)
+```
+p-value lớn => không bác bỏ $H_0$ => thoả mãn tính ổn định của phương sai 
+
+# Dự đoán
+
+### Tạo data dự đoán
+```{R}
+TAX_x_i1 <- c(9, 6)
+DLIC_x_i2 <- c(70, 40)
+INC_x_i13 <- c(5, 3)
+new <- data.frame(TAX_x_i1, DLIC_x_i2,INC_x_i13)
+
+```
+
+```{R}
+y_mu <- predict(new_model , newdata = new)
+y_mu
+```
+
+Transform ngược lại 
+```{R}
+
+BCTransformInverse <- function(yt, lambda=0) {
+  if (lambda == 0L) { exp(yt) }
+  else { exp(log(1 + lambda * yt)/lambda) }
+}
+BCTransformInverse(y_mu[1], 0)
+BCTransformInverse(y_mu[2], 0)
+```
+với điểm dữ liệu thứ nhất (9, 70, 5): giá trị ước lượng cho giá trị dự báo là 646.8941
+
+với điểm dữ liệu thứ hai (6, 40 ,3): giá trị ước lượng cho giá trị dự báo là 491.0123
+
+
+### KTC cho trung binh của biến đáp ứng
+```{R}
+preds <- predict(new_model , newdata = new, interval = "confidence")
+#inv_preds <- sapply(preds, BCTransformInverse, lambda = -1)
+#inv_preds
+inv_preds <- data.frame(
+  point = BCTransformInverse(preds[,1], lambda = 0),
+  lower = BCTransformInverse(preds[,2], lambda = 0), 
+  upper = BCTransformInverse(preds[,3], lambda = 0)
+)
+inv_preds$point
+inv_preds$lower
+inv_preds$upper
+```
+với điểm dữ liệu thứ nhất (9, 70 ,5): KTC cho trung bình biến đáp ứng  sẽ là từ 583.7558 đến 716.8614
+
+với điểm dữ liệu thứ hai (6, 40 ,3): KTC cho trung bình biến đáp ứng  sẽ là từ 429.1127 đến 561.8411
+
+
+### KTC cho giá trị dự báo của y
+```{R}
+preds <- predict(new_model , newdata = new, interval = "prediction")
+#inv_preds <- sapply(preds, BCTransformInverse, lambda = -1)
+#inv_preds
+inv_preds <- data.frame(
+  point = BCTransformInverse(preds[,1], lambda = 0),
+  lower = BCTransformInverse(preds[,2], lambda = 0), 
+  upper = BCTransformInverse(preds[,3], lambda = 0)
+)
+inv_preds$point
+inv_preds$lower
+inv_preds$upper
+
+```
+với điểm dữ liệu thứ nhất (9, 70 ,5): KTC cho giá trị dự báo của y  sẽ là từ 514.4895 đến 813.3732
+
+với điểm dữ liệu thứ hai (6, 40 ,3): KTC cho giá trị dự báo của y  sẽ là từ 384.2943 đến 627.3657
+
+
+
+# 4. Tài liệu tham khảo
+
+[1] "STAT 501: Regression Methods" Online Course by Penn State's World Campus:
+<https://online.stat.psu.edu/stat501/book/export/html/956#:\\>
+
+[2] Weisberg, S. (2005). *Applied linear regression* (Vol. 528). John Wiley & Sons.
+
+[3] Sheather, S. (2009). *A modern approach to regression with R*. Springer Science & Business Media.
+
+[4] <https://www.stat.umn.edu/arc/yjpower.pdf>
+
+[5] <https://github.com/petersonR/bestNormalize/blob/master/R/yeojohnson.R>
